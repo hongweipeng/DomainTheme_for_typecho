@@ -39,7 +39,7 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 	public function updateLink()
 	{
 		$this->checkLogin();
-		if (domaintheme_Plugin::form('update')->validate()) {
+		if (DomainTheme_Plugin::form('update')->validate()) {
 			$this->response->goBack();
 		}
 
@@ -90,6 +90,6 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 		$this->on($this->request->is('do=insert'))->insertDomainTheme();
 		$this->on($this->request->is('do=update'))->updateLink();
 		$this->on($this->request->is('do=delete'))->deleteLink();
-		//$this->response->redirect($this->options->adminUrl);
+		$this->response->redirect($this->options->adminUrl);
 	}
 }
