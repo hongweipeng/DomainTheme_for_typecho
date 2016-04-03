@@ -10,6 +10,8 @@
  */
 class DomainTheme_Plugin implements Typecho_Plugin_Interface
 {
+    public static $FORM_PRE = 'domaintheme_';//避免与其他模板配置冲突，添加前缀
+    public static $TEMP_THEME_NAME = null;  //待选主题
     /**
      * 激活插件方法,如果激活失败,直接抛出异常
      * 
@@ -104,43 +106,46 @@ class DomainTheme_Plugin implements Typecho_Plugin_Interface
 
 	public static function form($action = NULL)
 	{
+        $request = Typecho_Request::getInstance();
 		/** 构建表格 */
 		$options = Typecho_Widget::widget('Widget_Options');
 		$form = new Typecho_Widget_Helper_Form(Typecho_Common::url('/action/DomainTheme-edit', $options->index),
 		Typecho_Widget_Helper_Form::POST_METHOD);
 		
 		/** 名称 */
-		$name = new Typecho_Widget_Helper_Form_Element_Text('name', NULL, NULL, _t('名称'));
+		$name = new Typecho_Widget_Helper_Form_Element_Text(self::$FORM_PRE.'name', NULL, NULL, _t('名称'));
 		$form->addInput($name);
 	
 		/** 地址 */
-		$url = new Typecho_Widget_Helper_Form_Element_Text('domain', NULL, "", _t('域名'));
+		$url = new Typecho_Widget_Helper_Form_Element_Text(self::$FORM_PRE.'domain', NULL, "", _t('域名'));
 		$form->addInput($url);
 		
 		/** 主题 */
+        self::$TEMP_THEME_NAME = isset($request->themename) ? $request->themename : 'default';
         $themes = array_map('basename', glob(__TYPECHO_ROOT_DIR__ . __TYPECHO_THEME_DIR__ . '/*'));
         $themes = array_combine($themes, $themes);
-		$theme = new Typecho_Widget_Helper_Form_Element_Select('theme', $themes, 'default', _t('主题名称'), _t('模板名称'));
+		$theme = new DomainTheme_Element_Select(self::$FORM_PRE.'theme', $themes, self::$TEMP_THEME_NAME, _t('主题名称'), _t('模板名称'));
 		$form->addInput($theme);
-		
-		
-		/** 自定义数据 */
-		$user = new Typecho_Widget_Helper_Form_Element_Textarea('user', NULL, NULL, _t('自定义数据'), _t('该项用于用户自定义数据扩展(json格式)'));
-		$form->addInput($user);
+
+        /** 模板数据 **/
+        $template_data = array();
 		
 		/** 链接动作 */
-		$do = new Typecho_Widget_Helper_Form_Element_Hidden('do');
+		$do = new Typecho_Widget_Helper_Form_Element_Hidden(self::$FORM_PRE.'do');
 		$form->addInput($do);
 		
 		/** 链接主键 */
-		$id = new Typecho_Widget_Helper_Form_Element_Hidden('id');
+		$id = new Typecho_Widget_Helper_Form_Element_Hidden(self::$FORM_PRE.'id');
 		$form->addInput($id);
 		
 		/** 提交按钮 */
 		$submit = new Typecho_Widget_Helper_Form_Element_Submit();
 		$submit->input->setAttribute('class', 'btn primary');
-		$form->addItem($submit);
-		$request = Typecho_Request::getInstance();
+
+        $name->value(isset($request->name)?$request->name:null);
+        $url->value(isset($request->domain)?$request->domain:null);
+		
+		
         if (isset($request->id) && 'insert' != $action) {
             /** 更新模式 */
 			$db = Typecho_Db::get();
@@ -150,10 +155,14 @@ class DomainTheme_Plugin implements Typecho_Plugin_Interface
                 throw new Typecho_Widget_Exception(_t('链接不存在'), 404);
             }
             
-            $name->value($link['name']);
-            $url->value($link['domain']);
-            $theme->value($link['theme']);
-            $user->value($link['user']);
+            $name->value(isset($request->name)?$request->name:$link['name']);
+            $url->value(isset($request->domain)?$request->domain:$link['domain']);
+            //$user->value($link['user']);
+            $template_data = json_decode($link['user'], true);
+            if(!isset($request->themename)) {
+                self::$TEMP_THEME_NAME = $link['theme'];
+                $theme->value($link['theme']);
+            }
             $do->value('update');
             $id->value($link['id']);
             $submit->value(_t('编辑'));
@@ -177,8 +186,87 @@ class DomainTheme_Plugin implements Typecho_Plugin_Interface
         if ('update' == $action) {
             $id->addRule('required', _t('链接主键不存在'));
         }
+        /** 自定义数据 */
+        //$user = new Typecho_Widget_Helper_Form_Element_Textarea('user', NULL, NULL, _t('自定义数据'), _t('该项用于用户自定义数据扩展(json格式)'));
+        //$form->addInput($user);
+        self::configTheme($form, $template_data);
+        $form->addItem($submit);
         return $form;
 	}
 
+    public static function configTheme($form, $default = array()) {
+        //$options = Typecho_Widget::widget('Widget_Options');
+        //如果模板有设置函数
+        if(self::isExists()) {
+            themeConfig($form);
+            $inputs = $form->getInputs();
+            //var_dump($inputs);
+            if (!empty($inputs)) {
+                foreach ($inputs as $key => $val) {
+                    if(isset($default[$key])) {
+                        $form->getInput($key)->value($default[$key]);
+                    }
+                }
+            }
+        }
+        return $form;
+    }
 
+    public static function isExists()
+    {
+        $options = Typecho_Widget::widget('Widget_Options');
+        $configFile = $options->themeFile(DomainTheme_Plugin::$TEMP_THEME_NAME, 'functions.php');
+
+        if (file_exists($configFile)) {
+            require_once $configFile;
+            
+            if (function_exists('themeConfig')) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+
+}
+
+
+/**
+ *方法覆盖，给selset添加属性
+ *
+ */
+class DomainTheme_Element_Select extends Typecho_Widget_Helper_Form_Element_Select
+{
+
+    private $_options = array();
+
+    public function input($name = NULL, array $options = NULL)
+    {
+        $input = new Typecho_Widget_Helper_Layout('select',array('onchange'=>'select_theme_change(this);'));
+        $this->container($input->setAttribute('name', $name)
+        ->setAttribute('id', $name . '-0-' . self::$uniqueId));
+        $this->label->setAttribute('for', $name . '-0-' . self::$uniqueId);
+        $this->inputs[] = $input;
+
+        foreach ($options as $value => $label) {
+            $this->_options[$value] = new Typecho_Widget_Helper_Layout('option');
+            $input->addItem($this->_options[$value]->setAttribute('value', $value)->html($label));
+            if(DomainTheme_Plugin::$TEMP_THEME_NAME == $value) {
+                $this->_options[$value]->setAttribute('selected', 'selected');
+            }
+        }
+
+        return $input;
+    }
+    protected function _value($value)
+    {
+        foreach ($this->_options as $option) {
+            $option->removeAttribute('selected');
+        }
+
+        if (isset($this->_options[$value])) {
+            $this->_options[$value]->setAttribute('selected', 'selected');
+        }
+    }
 }

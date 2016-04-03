@@ -8,7 +8,11 @@ include 'menu.php';
     <div class="body container">
         <?php include 'page-title.php'; ?>
         <div class="row typecho-page-main manage-metas">
-
+                <div class="col-mb-12">
+                    <ul class="typecho-option-tabs clearfix">
+                        <li class="current"><?php _e('点击名称进入编辑'); ?></li>
+                    </ul>
+                </div>
                 <div class="col-mb-12 col-tb-8" role="main">                  
                     <?php
 						$prefix = $db->getPrefix();
@@ -49,8 +53,8 @@ include 'menu.php';
 								<?php foreach ($domaintheme as $link): ?>
                                 <tr id="lid-<?php echo $link['id']; ?>">
                                     <td><input type="checkbox" value="<?php echo $link['id']; ?>" name="id[]"/></td>
-									<td><a href="<?php echo $request->makeUriByRequest('id=' . $link['id']); ?>" title="点击编辑"><?php echo $link['name']; ?></a>
-									<td><?php echo $link['domain']; ?></td>
+									<td><a href="<?php echo $request->makeUriByRequest(array('id'=>$link['id'], 'themename'=>null)); ?>" title="点击编辑"><?php echo $link['name']; ?></a>
+									<td><a href="http://<?php echo $link['domain']; ?>" target="_blank"><?php echo $link['domain']; ?></a></td>
 									<td><?php echo $link['theme']; ?></td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -122,5 +126,18 @@ include 'common-js.php';
         <?php endif; ?>
     });
 })();
+function select_theme_change(obj) {
+    var url = "<?php echo $request->makeUriByRequest(array('id'=>null,'name'=>null,'domain'=>null,'themename'=>null)); ?>";
+    var form_pre = "<?php echo DomainTheme_Plugin::$FORM_PRE; ?>";
+    var id = $("[name='"+ form_pre +"id']").eq(0).val();
+    var name = $('#domaintheme_name-0-1').val();
+    var domain = $('#domaintheme_domain-0-2').val();
+    var themename = $('#domaintheme_theme-0-3').val();
+    id && (url+='&id='+id);
+    name && (url += '&name='+name);
+    domain && (url += '&domain='+domain);
+    themename && (url += '&themename='+themename);
+    window.location.href = url;
+}
 </script>
 <?php include 'footer.php'; ?>

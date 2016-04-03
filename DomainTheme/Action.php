@@ -17,6 +17,14 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
         }
 
     }
+
+    public function get_data_once(&$arr, $key, $default = null) {
+    	if(isset($arr[$key])) {
+    		$default = $arr[$key];
+    		unset($arr[$key]);
+    	}
+    	return $default;
+    }
 			
 	public function insertDomainTheme()
 	{
@@ -25,11 +33,17 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 			$this->response->goBack();
 		}
 		/** 取出数据 */
-		$link = $this->request->from('name', 'domain', 'theme', 'user');
-
+		//$link = $this->request->from('name', 'domain', 'theme', 'user');
+		$form_data = $this->request->from(array_keys($_POST));
+		$data['id'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'id');
+		$data['name'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'name');
+		$data['domain'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'domain');
+		$data['theme'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'theme');
+		unset($form_data[DomainTheme_Plugin::$FORM_PRE.'do']);
+		$data['user'] = json_encode($form_data);
 
 		/** 插入数据 */
-		$link['id'] = $this->db->query($this->db->insert($this->prefix.'domaintheme')->rows($link));
+		$data['id'] = $this->db->query($this->db->insert($this->prefix.'domaintheme')->rows($data));
 
 		/** 转向原页 */
 		$this->response->redirect(Typecho_Common::url('extending.php?panel=DomainTheme%2Fmanage-domaintheme.php', $this->options->adminUrl));
@@ -44,17 +58,25 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 		}
 
 		/** 取出数据 */
-		$link = $this->request->from('id', 'name', 'domain', 'theme', 'user');
+		
+		//$form_data = $this->request->from(array_keys($_POST));
+		$form_data = $_POST;
+		$data['id'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'id');
+		$data['name'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'name');
+		$data['domain'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'domain');
+		$data['theme'] = $this->get_data_once($form_data, DomainTheme_Plugin::$FORM_PRE.'theme');
+		unset($form_data[DomainTheme_Plugin::$FORM_PRE.'do']);
+		$data['user'] = json_encode($form_data);
 
 		/** 更新数据 */
-		$this->db->query($this->db->update($this->prefix.'domaintheme')->rows($link)->where('id = ?', $link['id']));
+		$this->db->query($this->db->update($this->prefix.'domaintheme')->rows($data)->where('id = ?', $data['id']));
 
 		/** 设置高亮 */
-		$this->widget('Widget_Notice')->highlight('link-'.$link['id']);
+		$this->widget('Widget_Notice')->highlight('link-'.$data['id']);
 
 		/** 提示信息 */
 		$this->widget('Widget_Notice')->set(_t('"%s" => %s 已经被更新',
-		$link['domain'], $link['theme']), NULL, 'success');
+		$data['domain'], $data['theme']), NULL, 'success');
 
 		/** 转向原页 */
 		$this->response->redirect(Typecho_Common::url('extending.php?panel=DomainTheme%2Fmanage-domaintheme.php', $this->options->adminUrl));
@@ -87,9 +109,9 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 		$this->db = Typecho_Db::get();
 		$this->prefix = $this->db->getPrefix();
 		$this->options = Typecho_Widget::widget('Widget_Options');
-		$this->on($this->request->is('do=insert'))->insertDomainTheme();
-		$this->on($this->request->is('do=update'))->updateLink();
-		$this->on($this->request->is('do=delete'))->deleteLink();
+		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=insert'))->insertDomainTheme();
+		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=update'))->updateLink();
+		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=delete'))->deleteLink();
 		$this->response->redirect($this->options->adminUrl);
 	}
 }
