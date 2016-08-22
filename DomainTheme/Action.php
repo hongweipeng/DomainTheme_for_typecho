@@ -112,6 +112,6 @@ class DomainTheme_Action extends Typecho_Widget implements Widget_Interface_Do
 		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=insert'))->insertDomainTheme();
 		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=update'))->updateLink();
 		$this->on($this->request->is(DomainTheme_Plugin::$FORM_PRE.'do=delete'))->deleteLink();
-		$this->response->redirect($this->options->adminUrl);
+		//$this->response->redirect($this->options->adminUrl);
 	}
 }
